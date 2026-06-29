@@ -9,6 +9,7 @@ use tauri::async_runtime;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::commands::common::{ApiError, log_command_panic, panic_message};
+use crate::commands::retrieval::RetrievalState;
 use crate::logging;
 
 #[derive(Default)]
@@ -580,8 +581,9 @@ pub async fn llm_prewarm_multimodal_context(
 #[tauri::command]
 pub fn llm_generate_chat_stream(
     state: State<LlmState>,
+    retrieval_state: State<'_, RetrievalState>,
     window: WebviewWindow,
-    request: inference::GenerateChatRequest,
+    mut request: inference::GenerateChatRequest,
 ) -> Result<(), ApiError> {
     let context = state
         .context
@@ -589,6 +591,41 @@ pub fn llm_generate_chat_stream(
         .map_err(|_| ApiError::new("lock", "Failed to lock LLM context store"))?
         .clone()
         .ok_or_else(|| ApiError::new("llm_not_ready", "Model context not loaded"))?;
+
+    let latest_query = request.messages
+        .last()
+        .map(|m| m.content.clone())
+        .unwrap_or_default();
+
+    let search_query = if latest_query.len() > 300 {
+        let start = latest_query.len() - 300;
+        &latest_query[start..]
+    } else {
+        &latest_query
+    };
+
+    let mut context_text = String::new();
+    if let Ok(inner) = retrieval_state.inner.lock() {
+        if let Some(rdb) = inner.as_ref() {
+            match rdb.retrieve(search_query, 3) {
+                Ok(chunks) => {
+                    if !chunks.is_empty() {
+                        context_text.push_str("Context:\n\n");
+                        for chunk in chunks {
+                            context_text.push_str(&format!("- {}: {}\n", chunk.title, chunk.content));
+                        }
+                    }
+                }
+                Err(e) => println!("[RAG]: {}", e),
+            }
+        }
+    }
+
+    if !context_text.is_empty() {
+        if let Some(last_msg) = request.messages.last_mut() {
+            last_msg.content = format!("{}\n\nUser: {}", context_text, last_msg.content);
+        }
+    }
 
     async_runtime::spawn_blocking(move || {
         match catch_unwind(AssertUnwindSafe(|| {

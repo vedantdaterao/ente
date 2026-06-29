@@ -39,7 +39,6 @@ import {
     LlmProvider,
     type ResolvedModelPreset,
 } from "@/services/llm/provider";
-import { buildRagContext, retrievalQuery } from "@/services/llm/retrieval";
 import type {
     DownloadProgress,
     GenerateEvent,
@@ -2057,7 +2056,6 @@ const Page: React.FC = () => {
                     console.error("[RAG] downloading DB...");
                     await invoke("retrieval_download_db");
                     
-                    await invoke("ensure_embedding_model_ready");
                     await invoke("retrieval_open");
                     ragReadyRef.current = true;
                     console.error("[RAG] ready");
@@ -2771,28 +2769,6 @@ const Page: React.FC = () => {
                     ...history,
                     { role: "user", content: promptText },
                 ];
-
-                if (
-                    ragReadyRef.current &&
-                    provider.getBackendKind() === "tauri"
-                ) {
-                    try {
-                        const chunks = await retrievalQuery(promptText, 3);
-                        if (chunks.length > 0) {
-                            const context = buildRagContext(chunks);
-                            messages.splice(messages.length - 1, 0, {
-                                role: "user",
-                                content: `Use the following context to answer:\n\n${context}`,
-                            });
-                        }
-                    } catch (e) {
-                        console.error(
-                            "[RAG] retrieval_open failed:",
-                            JSON.stringify(e),
-                        );
-                    }
-                }
-                console.log(messages);
                 const promptTokenEstimate = messages.reduce(
                     (total, message) => total + approxTokens(message.content),
                     0,

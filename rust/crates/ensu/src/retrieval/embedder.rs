@@ -49,12 +49,12 @@ impl EmbeddingModel {
             return Err("Input produced no tokens".to_string());
         }
 
-        // Truncate silently to context size — embedding models degrade gracefully.
+        // Truncate silently to context size
         let tokens = &tokens[..tokens.len().min(CONTEXT_SIZE as usize - 1)];
 
         let mut batch = LlamaBatch::new(tokens.len(), 1);
         for (i, &token) in tokens.iter().enumerate() {
-            // Mark last token to compute logits (required even in embedding mode).
+            // Mark last token to compute logits
             let is_last = i == tokens.len() - 1;
             batch
                 .add(token, i as i32, &[0], is_last)
@@ -65,9 +65,20 @@ impl EmbeddingModel {
         ctx.decode(&mut batch)
             .map_err(|e| format!("Decode failed: {e}"))?;
 
-        let embedding = ctx
+        let raw_embedding = ctx
             .embeddings_seq_ith(0)
             .map_err(|e| format!("Failed to get embeddings: {e}"))?;
+            
+        let mut embedding: Vec<f32> = raw_embedding.to_vec();
+
+        // Normalization
+        let norm_squared: f32 = embedding.iter().map(|x| x * x).sum();
+        if norm_squared > 0.0 {
+            let norm = norm_squared.sqrt();
+            for val in embedding.iter_mut() {
+                *val /= norm;
+            }
+        }
 
         if embedding.len() != EMBEDDING_DIM {
             return Err(format!(
@@ -76,6 +87,6 @@ impl EmbeddingModel {
             ));
         }
 
-        Ok(embedding.to_vec())
+        Ok(embedding)
     }
 }

@@ -82,7 +82,7 @@ pub async fn retrieval_download_embedding_model(
 }
 
 pub struct RetrievalState {
-    inner: Mutex<Option<RetrievalDb>>,
+    pub inner: Mutex<Option<RetrievalDb>>,
 }
 
 impl Default for RetrievalState {

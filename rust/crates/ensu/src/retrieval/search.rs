@@ -12,9 +12,10 @@ pub struct RetrievedChunk {
     pub distance: f32,
 }
 
-/// Find the `limit` most relevant articles for `query` using vec0 KNN search.
-///
-/// `conn` must have been opened after [`super::register_vec_extension`] was called.
+/* 
+    Find the `limit` most relevant articles for `query` using vec0 KNN search
+    `conn` must have been opened after [`super::register_vec_extension`] was called
+*/ 
 pub fn retrieve(
     conn: &Connection,
     model: &EmbeddingModel,
@@ -52,5 +53,18 @@ pub fn retrieve(
         )
         .map_err(|e| e.to_string())?;
 
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    // rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    let mut chunks = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    /* 
+        semantic threshold filter
+        distance for normalized vectors ranges from 0.0 to 2.0 
+        Anything higher than `threshold` is likely irrelevant
+    */
+    let threshold = 1.0;
+    chunks.retain(|chunk| chunk.distance < threshold);
+
+    Ok(chunks)
 }

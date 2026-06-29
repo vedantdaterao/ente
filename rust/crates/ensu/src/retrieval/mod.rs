@@ -70,7 +70,6 @@ mod tests {
 
     #[test]
     fn test_retrieve() {
-        // Point these at your actual files
         let db_path = "/home/vedant/Programming/ente/simplewiki-rag/build/simplewiki_index.db";
         let model_path = "/tmp/all-MiniLM-L6-v2.Q8_0.gguf";
 
