@@ -3,6 +3,7 @@ mod common;
 pub(crate) mod crypto;
 pub(crate) mod fs;
 pub(crate) mod inference;
+pub(crate) mod retrieval; 
 pub(crate) mod secure_storage;
 pub(crate) mod system;
 

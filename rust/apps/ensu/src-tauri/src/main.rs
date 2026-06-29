@@ -18,6 +18,8 @@ fn main() {
         .manage(commands::inference::LlmState::default())
         .manage(commands::inference::LlmModelDownloadState::default())
         .manage(commands::chat_db::ChatDbState::default())
+        .manage(commands::retrieval::RetrievalDownloadState::default())  
+        .manage(commands::retrieval::RetrievalState::default())
         .setup(|app| {
             logging::init_logging(app.handle());
             logging::log("App", "setup started");
@@ -69,6 +71,10 @@ fn main() {
             commands::inference::llm_cancel_model_download,
             commands::fs::fs_file_size,
             commands::fs::fs_read_head,
+            commands::retrieval::retrieval_download_db,
+            commands::retrieval::retrieval_cancel_download,
+            commands::retrieval::retrieval_open,
+            commands::retrieval::retrieval_query,
         ])
         .build(tauri::generate_context!())
         .unwrap_or_else(|err| {
