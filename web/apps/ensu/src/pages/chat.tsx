@@ -2043,15 +2043,29 @@ const Page: React.FC = () => {
         if (ragInitializedRef.current) return;
         ragInitializedRef.current = true;
 
-        void import("@tauri-apps/api/core")
-            .then(({ invoke }) => invoke("retrieval_open"))
-            .then(() => {
+        void import("@tauri-apps/api/core").then(async ({ invoke }) => {
+            try {
+                await invoke("retrieval_open");
                 ragReadyRef.current = true;
-                console.error("[RAG] success");
-            })
-            .catch((e: unknown) => {
-                console.error("[RAG] failed:", JSON.stringify(e));
-            });
+                console.error("[RAG] ready");
+            } catch {
+                // DB or model not present — download them
+                try {
+                    console.error("[RAG] downloading embedding model...");
+                    await invoke("retrieval_download_embedding_model");
+                    
+                    console.error("[RAG] downloading DB...");
+                    await invoke("retrieval_download_db");
+                    
+                    await invoke("ensure_embedding_model_ready");
+                    await invoke("retrieval_open");
+                    ragReadyRef.current = true;
+                    console.error("[RAG] ready");
+                } catch (e) {
+                    console.error("[RAG] download failed:", JSON.stringify(e));
+                }
+            }
+        });
     }, [isTauriRuntime]);
 
     useEffect(() => {

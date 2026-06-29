@@ -29,9 +29,13 @@ impl Default for RetrievalDownloadState {
 #[tauri::command]
 pub async fn retrieval_download_db(
     window: WebviewWindow,
+    app: AppHandle,
     state: State<'_, RetrievalDownloadState>,
-    destination_path: String,
 ) -> Result<(), ApiError> {
+    let destination_path = retrieval_db_path(&app)?
+        .to_string_lossy()
+        .into_owned();
+
     let cancel_requested = Arc::clone(&state.cancel_requested);
     cancel_requested.store(false, Ordering::SeqCst);
 
@@ -54,6 +58,28 @@ pub fn retrieval_cancel_download(state: State<'_, RetrievalDownloadState>) {
     state.cancel_requested.store(true, Ordering::SeqCst);
 }
 // retrieval state
+
+#[tauri::command]
+pub async fn retrieval_download_embedding_model(
+    window: WebviewWindow,
+    app: AppHandle,
+) -> Result<(), ApiError> {
+    let model_dir = app_data_dir(&app)?;
+
+    async_runtime::spawn_blocking(move || {
+        retrieval::ensure_embedding_model_ready(
+            &model_dir,
+            move |progress| {
+                let _ = window.emit("retrieval-download-progress", progress);
+            },
+            || false,
+        )
+        .map(|_| ())
+        .map_err(|e| ApiError::new("retrieval_download_embedding_model", e))
+    })
+    .await
+    .map_err(|_| fs_thread_error())?
+}
 
 pub struct RetrievalState {
     inner: Mutex<Option<RetrievalDb>>,

@@ -9,7 +9,7 @@ use crate::inference::{LlmModelDownloadProgress};
 const SQLITE_MAGIC: &[u8] = b"SQLite format 3\0";
 
 const SIMPLEWIKI_DB_URL: &str =
-    "https://github.com/vedantdaterao/ente/releases/download/<tag>/simplewiki_index.db";
+    "https://github.com/vedantdaterao/ente/releases/download/retrieval/simplewiki_index.db";
 
 pub fn download_retrieval_db(
     destination_path: &str,

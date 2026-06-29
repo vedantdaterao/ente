@@ -26,7 +26,7 @@ use crate::inference::{download_llm_model_files, LlmModelDownloadTarget};
 const EMBEDDING_MODEL_URL: &str =  
     "https://huggingface.co/leliuga/all-MiniLM-L6-v2-GGUF/resolve/main/all-MiniLM-L6-v2.Q8_0.gguf";  
   
-pub fn ensure_embedding_model_ready(  
+pub fn ensure_embedding_model_ready(
     model_dir: &Path,  
     on_progress: impl FnMut(crate::inference::LlmModelDownloadProgress),  
     is_cancelled: impl Fn() -> bool,  

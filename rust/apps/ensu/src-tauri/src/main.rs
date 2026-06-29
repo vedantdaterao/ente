@@ -73,6 +73,7 @@ fn main() {
             commands::fs::fs_read_head,
             commands::retrieval::retrieval_download_db,
             commands::retrieval::retrieval_cancel_download,
+            commands::retrieval::retrieval_download_embedding_model,
             commands::retrieval::retrieval_open,
             commands::retrieval::retrieval_query,
         ])
