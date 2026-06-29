@@ -2,10 +2,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use ente_ensu::retrieval::{self, RetrievalDb, RetrievedChunk};
+
 use std::sync::Mutex;
-use tauri::{Emitter, State, WebviewWindow};
+use std::path::PathBuf;
+
+use tauri::{AppHandle, Emitter, State, WebviewWindow};
 use tauri::async_runtime;
 
+use crate::commands::common::app_data_dir;
 use crate::commands::common::ApiError;
 
 // download state
@@ -49,7 +53,6 @@ pub async fn retrieval_download_db(
 pub fn retrieval_cancel_download(state: State<'_, RetrievalDownloadState>) {
     state.cancel_requested.store(true, Ordering::SeqCst);
 }
-
 // retrieval state
 
 pub struct RetrievalState {
@@ -69,18 +72,43 @@ impl Default for RetrievalState {
 /// Safe to call again to swap in a different DB or model path.
 #[tauri::command]
 pub fn retrieval_open(
+    app: AppHandle,
     state: State<'_, RetrievalState>,
-    db_path: String,
-    model_path: String,
 ) -> Result<(), ApiError> {
+    let db_path = retrieval_db_path(&app)?;
+    let model_path = retrieval_model_path(&app)?;
+
+    crate::logging::log("RAG", format!("db={} exists={}", db_path.display(), db_path.exists()));
+    crate::logging::log("RAG", format!("model={} exists={}", model_path.display(), model_path.exists()));
+
+    if !db_path.exists() {
+        return Err(ApiError::new("retrieval_open", "DB not downloaded"));
+    }
+    if !model_path.exists() {
+        return Err(ApiError::new("retrieval_open", "Embedding model not downloaded"));
+    }
+
     retrieval::register_vec_extension();
 
-    let rdb = RetrievalDb::open(&db_path, &model_path)
-        .map_err(|e| ApiError::new("retrieval_open", e))?;
+    let rdb = RetrievalDb::open(
+        db_path.to_str().unwrap(),
+        model_path.to_str().unwrap(),
+    )
+    .map_err(|e| ApiError::new("retrieval_open", e))?;
 
     *state.inner.lock().unwrap() = Some(rdb);
-
     Ok(())
+}
+
+const RETRIEVAL_DB_FILE_NAME: &str = "simplewiki_index.db";
+const EMBEDDING_MODEL_FILE_NAME: &str = "all-MiniLM-L6-v2.Q8_0.gguf";
+
+fn retrieval_db_path(app: &AppHandle) -> Result<PathBuf, ApiError> {
+    Ok(app_data_dir(app)?.join(RETRIEVAL_DB_FILE_NAME))
+}
+
+fn retrieval_model_path(app: &AppHandle) -> Result<PathBuf, ApiError> {
+    Ok(app_data_dir(app)?.join(EMBEDDING_MODEL_FILE_NAME))
 }
 
 /// Query the retrieval DB for the most relevant chunks for `query`.

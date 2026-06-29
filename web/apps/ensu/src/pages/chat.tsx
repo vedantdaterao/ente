@@ -39,6 +39,7 @@ import {
     LlmProvider,
     type ResolvedModelPreset,
 } from "@/services/llm/provider";
+import { buildRagContext, retrievalQuery } from "@/services/llm/retrieval";
 import type {
     DownloadProgress,
     GenerateEvent,
@@ -694,6 +695,8 @@ const Page: React.FC = () => {
     }>({ sessionId: undefined, promise: null });
 
     const chatKeyInitCancelledRef = useRef(false);
+
+    const ragReadyRef = useRef(false);
 
     const scheduleIdleTask = useCallback(
         (callback: () => void, timeout = 1200) => {
@@ -2034,6 +2037,23 @@ const Page: React.FC = () => {
         })();
     }, [ensureProvider, getModelSettings, isTauriRuntime]);
 
+    const ragInitializedRef = useRef(false);
+    useEffect(() => {
+        if (!isTauriRuntime) return;
+        if (ragInitializedRef.current) return;
+        ragInitializedRef.current = true;
+
+        void import("@tauri-apps/api/core")
+            .then(({ invoke }) => invoke("retrieval_open"))
+            .then(() => {
+                ragReadyRef.current = true;
+                console.error("[RAG] success");
+            })
+            .catch((e: unknown) => {
+                console.error("[RAG] failed:", JSON.stringify(e));
+            });
+    }, [isTauriRuntime]);
+
     useEffect(() => {
         if (!firstPaintDone) return;
         const cancelIdle = scheduleIdleTask(() => {
@@ -2737,6 +2757,28 @@ const Page: React.FC = () => {
                     ...history,
                     { role: "user", content: promptText },
                 ];
+
+                if (
+                    ragReadyRef.current &&
+                    provider.getBackendKind() === "tauri"
+                ) {
+                    try {
+                        const chunks = await retrievalQuery(promptText, 3);
+                        if (chunks.length > 0) {
+                            const context = buildRagContext(chunks);
+                            messages.splice(messages.length - 1, 0, {
+                                role: "user",
+                                content: `Use the following context to answer:\n\n${context}`,
+                            });
+                        }
+                    } catch (e) {
+                        console.error(
+                            "[RAG] retrieval_open failed:",
+                            JSON.stringify(e),
+                        );
+                    }
+                }
+                console.log(messages);
                 const promptTokenEstimate = messages.reduce(
                     (total, message) => total + approxTokens(message.content),
                     0,

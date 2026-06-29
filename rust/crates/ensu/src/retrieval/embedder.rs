@@ -19,7 +19,7 @@ pub struct EmbeddingModel {
 
 impl EmbeddingModel {
     pub fn load(model_path: &str) -> Result<Self, String> {
-        let backend = LlamaBackend::init().map_err(|e| e.to_string())?;
+        let backend = LlamaBackend::init().unwrap_or(LlamaBackend {});
         let model = LlamaModel::load_from_file(
             &backend,
             Path::new(model_path),
