@@ -11,7 +11,7 @@ use llama_cpp_2::{
 const EMBEDDING_DIM: usize = 384;
 const CONTEXT_SIZE: u32 = 512;
 
-/// A loaded all-MiniLM-L6-v2 GGUF model ready to embed query strings.
+/// all-MiniLM-L6-v2 GGUF model
 pub struct EmbeddingModel {
     model: LlamaModel,
     backend: LlamaBackend,
@@ -49,7 +49,6 @@ impl EmbeddingModel {
             return Err("Input produced no tokens".to_string());
         }
 
-        // Truncate silently to context size — embedding models degrade gracefully.
         let tokens = &tokens[..tokens.len().min(CONTEXT_SIZE as usize - 1)];
 
         let mut batch = LlamaBatch::new(tokens.len(), 1);
